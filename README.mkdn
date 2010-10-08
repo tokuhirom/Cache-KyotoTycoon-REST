@@ -1,14 +1,65 @@
 # NAME
 
-Cache::KyotoTycoon::REST -
+Cache::KyotoTycoon::REST - Client library for KyotoTycoon RESTful API
 
 # SYNOPSIS
 
-  use Cache::KyotoTycoon::REST;
+    use Cache::KyotoTycoon::REST;
+
+    my $kt = Cache::KyotoTycoon::REST->new(host => $host, port => $port);
+    $kt->put("foo", "bar", 100); # store key "foo" and value "bar".
+    $kt->get("foo"); # => "bar"
+    $kt->delete("foo"); # remove key
 
 # DESCRIPTION
 
 Cache::KyotoTycoon::REST is
+
+# CONSTRUCTOR
+
+- serializer
+
+- deserializer
+
+_serializer_ and _deserializer_.
+
+Note: Cache::KyotoTycoon::REST always use _serializer_ and _deserializer_ unlike Cache::Memcached.
+Because Cache::Memcache::Fast doesn't support flags like _memcached_.
+
+# METHODS
+
+- my $val = $kt->get($key);
+
+- my ($val, $expires) = $kt->get($key);
+
+Retrieve the value for a _$key_.  _$key_ should be a scalar.
+
+_Return:_ value associated with the _$key_ and _$expires_ time in epoch or undef.
+
+- my $expires = $kt->head($key);
+
+Check the _$key_ is exists or not.
+
+_Return:_ _$expires_ time in epoch or undef.
+
+- $kt->put($key, $val[, $expires]);
+
+Store the _$val_ on the server under the _$key_. _$key_ should be a scalar.
+_$value_ should be defined and may be of any Perl data type.
+
+_$expires_ is expire time in seconds relative from current time. This is not absolute epoch time.
+
+_Return:_ 1 if server returns OK(201), or _undef_ in case of some error.
+
+- $kt->delete($key);
+
+Remove cache data for $key.
+
+_Return:_ 1 if server returns OK(200).  0 if server returns not found(404), or _undef_ in case of some error.
+
+# TODO
+
+    test case for serializer/deserializer
 
 # AUTHOR
 
