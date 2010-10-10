@@ -17,15 +17,6 @@ Cache::KyotoTycoon::REST is
 
 # CONSTRUCTOR
 
-- serializer
-
-- deserializer
-
-_serializer_ and _deserializer_.
-
-Note: Cache::KyotoTycoon::REST always use _serializer_ and _deserializer_ unlike Cache::Memcached.
-Because Cache::Memcache::Fast doesn't support flags like _memcached_.
-
 # METHODS
 
 - my $val = $kt->get($key);
@@ -56,10 +47,6 @@ _Return:_ 1 if server returns OK(201), or _undef_ in case of some error.
 Remove cache data for $key.
 
 _Return:_ 1 if server returns OK(200).  0 if server returns not found(404), or _undef_ in case of some error.
-
-# TODO
-
-    test case for serializer/deserializer
 
 # AUTHOR
 
