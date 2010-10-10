@@ -15,7 +15,7 @@ sub new {
 
     my $ua = LWP::UserAgent->new(
         parse_head => 0,
-        timeout    => defined( $args{timeout} ) ? $args{timeout} : 1,
+        timeout    => exists( $args{timeout} ) ? $args{timeout} : 1,
         keep_alive => 1,
     );
     my $host = $args{host} || '127.0.0.1';
@@ -62,10 +62,15 @@ sub head {
 
 sub put {
     my ($self, $key, $val, $expires_time) = @_;
-    my $expires = $expires_time ? HTTP::Date::time2str(time() + $expires_time) : undef;
+    my @headers;
+    if ($expires_time) {
+        $expires_time = $expires_time > 0 ? time() + $expires_time : -$expires_time;
+        my $expires = HTTP::Date::time2str($expires_time);
+        push @headers, 'X-Kt-Xt' => $expires;
+    }
     my $req = HTTP::Request->new(
         PUT => $self->{base} . URI::Escape::uri_escape($key),
-        [ $expires ? ('X-Kt-Xt' => $expires) : () ], $val
+        \@headers, $val
     );
     my $res = $self->{ua}->request($req);
     if ($res->code eq 201) {
@@ -108,11 +113,17 @@ Cache::KyotoTycoon::REST - Client library for KyotoTycoon RESTful API
 
 =head1 DESCRIPTION
 
-Cache::KyotoTycoon::REST is
+Cache::KyotoTycoon::REST is client library for KyotoTycoon RESTful API.
 
 =head1 CONSTRUCTOR
 
 =over 4
+
+=item port
+
+=item host
+
+=item timeout
 
 =back
 
@@ -139,7 +150,7 @@ I<Return:> I<$expires> time in epoch or undef.
 Store the I<$val> on the server under the I<$key>. I<$key> should be a scalar.
 I<$value> should be defined and may be of any Perl data type.
 
-I<$expires> is expire time in seconds relative from current time. This is not absolute epoch time.
+I<$expires>: expiration time. If $expires>0, expiration time in seconds from now. If $expires<0, the epoch time. It is never remove if missing $expires.
 
 I<Return:> 1 if server returns OK(201), or I<undef> in case of some error.
 
@@ -156,6 +167,8 @@ I<Return:> 1 if server returns OK(200).  0 if server returns not found(404), or 
 Tokuhiro Matsuno E<lt>tokuhirom AAJKLFJEF GMAIL COME<gt>
 
 =head1 SEE ALSO
+
+L<Cache::KyotoTycoon>
 
 =head1 LICENSE
 
