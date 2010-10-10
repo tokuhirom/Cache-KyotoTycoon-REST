@@ -21,13 +21,9 @@ sub new {
     my $host = $args{host} || '127.0.0.1';
     my $port = $args{port} || 1978;
     my $base = "http://${host}:${port}/";
-    my $serializer   = $args{serializer};
-    my $deserializer = $args{deserializer};
     bless {
         ua           => $ua,
         base         => $base,
-        serializer   => $serializer,
-        deserializer => $deserializer
     }, $class;
 }
 
@@ -37,7 +33,7 @@ sub get {
     my ($self, $key) = @_;
     my $res = $self->{ua}->get($self->{base} . URI::Escape::uri_escape($key));
     if ($res->code eq 200) {
-        my $ret = $self->{deserializer} ? $self->{deserializer}->($res->content) : $res->content;
+        my $ret = $res->content;
         if (wantarray) {
             my $expires = HTTP::Date::str2time($res->header('X-Kt-XT'));
             return ($ret, $expires);
@@ -67,7 +63,6 @@ sub head {
 sub put {
     my ($self, $key, $val, $expires_time) = @_;
     my $expires = $expires_time ? HTTP::Date::time2str(time() + $expires_time) : undef;
-    $val = $self->{serializer}->($val) if $self->{serializer};
     my $req = HTTP::Request->new(
         PUT => $self->{base} . URI::Escape::uri_escape($key),
         [ $expires ? ('X-Kt-Xt' => $expires) : () ], $val
@@ -119,15 +114,6 @@ Cache::KyotoTycoon::REST is
 
 =over 4
 
-=item serializer
-
-=item deserializer
-
-I<serializer> and I<deserializer>.
-
-Note: Cache::KyotoTycoon::REST always use I<serializer> and I<deserializer> unlike Cache::Memcached.
-Because Cache::Memcache::Fast doesn't support flags like I<memcached>.
-
 =back
 
 =head1 METHODS
@@ -164,10 +150,6 @@ Remove cache data for $key.
 I<Return:> 1 if server returns OK(200).  0 if server returns not found(404), or I<undef> in case of some error.
 
 =back
-
-=head1 TODO
-
-    test case for serializer/deserializer
 
 =head1 AUTHOR
 
