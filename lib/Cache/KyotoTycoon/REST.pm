@@ -3,7 +3,6 @@ use strict;
 use warnings;
 use 5.00800;
 our $VERSION = '0.01';
-use HTTP::Date;
 use URI::Escape ();
 
 use WWW::Curl::Easy;
@@ -62,8 +61,7 @@ sub get {
         my $code = $curl->getinfo(CURLINFO_HTTP_CODE);
         if ($code eq 200) {
             if (wantarray) {
-                my $expires = $xt ? HTTP::Date::str2time($xt) : $xt;
-                return ($response_content, $expires);
+                return ($response_content, $xt || '');
             } else {
                 return $response_content;
             }
@@ -109,8 +107,7 @@ sub head {
     if ($retcode == 0) {
         my $code = $curl->getinfo(CURLINFO_HTTP_CODE);
         if ($code eq 200) {
-            my $expires = HTTP::Date::str2time($xt);
-            return $expires;
+            return $xt || '';
         } elsif ($code eq 404) {
             return; # not found
         }
@@ -128,9 +125,8 @@ sub put {
         "\r\n"
     );
     if ($expires_time) {
-        $expires_time =
+        my $expires =
           $expires_time > 0 ? time() + $expires_time : -$expires_time;
-        my $expires = HTTP::Date::time2str($expires_time);
         unshift @headers, "X-Kt-Xt: $expires";
     }
     my $curl = $self->{curl};
@@ -239,13 +235,13 @@ Cache::KyotoTycoon::REST is client library for KyotoTycoon RESTful API.
 
 Retrieve the value for a I<$key>.  I<$key> should be a scalar.
 
-I<Return:> value associated with the I<$key> and I<$expires> time in epoch or undef.
+I<Return:> value associated with the I<$key> and I<$expires> time in RFC1123 date format of GMT, empty string on no expiration time, or undef on $key is not found.
 
 =item my $expires = $kt->head($key);
 
 Check the I<$key> is exists or not.
 
-I<Return:> I<$expires> time in epoch or undef.
+I<Return:> I<$expires>: RFC 1123 date format of GMT, empty string on no expiration time, or undef if $key not found.
 
 =item $kt->put($key, $val[, $expires]);
 

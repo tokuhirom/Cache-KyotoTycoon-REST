@@ -4,6 +4,7 @@ use Test::More;
 use Test::TCP;
 use File::Which;
 use Cache::KyotoTycoon::REST;
+use HTTP::Date qw/str2time/;
 
 my $ktserver = which('ktserver');
 plan skip_all => 'ktserver is required for this test' unless $ktserver;
@@ -30,13 +31,13 @@ test_tcp(
             my ($content, $expires) = $rest->get($key);
             is $content, 'fuga1';
             ok $expires, "returned expires";
-            cmp_ok abs($expires-time()-100), '<', 10;
+            cmp_ok abs(str2time($expires)-time()-100), '<', 10;
         };
 
         subtest 'HEAD' => sub {
             my $expires = $rest->head($key);
             ok $expires;
-            cmp_ok abs($expires-time()-100), '<', 10;
+            cmp_ok abs(str2time($expires)-time()-100), '<', 10;
 
             is($rest->head("UNKNOWNNNNNNN"), undef);
         };
