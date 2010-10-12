@@ -1,4 +1,8 @@
 Revision history for Perl extension Cache::KyotoTycoon::REST
 
+0.02
+
+        - micro optimization
+
 0.01    Fri Oct  8 17:23:30 2010
         - original version
