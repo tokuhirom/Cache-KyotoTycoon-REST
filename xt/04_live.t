@@ -29,6 +29,7 @@ test_tcp(
 
             my ($content, $expires) = $rest->get($key);
             is $content, 'fuga1';
+            ok $expires, "returned expires";
             cmp_ok abs($expires-time()-100), '<', 10;
         };
 
@@ -43,7 +44,7 @@ test_tcp(
         subtest 'DELETE' => sub {
             is $rest->delete($key), 1, 'remove.';
             is $rest->delete($key), 0, 'removed. not found.';
-};
+        };
     },
     server => sub {
         my $port = shift;

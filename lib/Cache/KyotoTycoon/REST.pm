@@ -6,23 +6,25 @@ our $VERSION = '0.01';
 use HTTP::Date;
 use URI::Escape ();
 
-use LWP::UserAgent;
-use HTTP::Request;
+use WWW::Curl::Easy;
 
 sub new {
     my $class = shift;
     my %args = @_==1 ? %{$_[0]} : @_;
 
-    my $ua = LWP::UserAgent->new(
-        parse_head => 0,
-        timeout    => exists( $args{timeout} ) ? $args{timeout} : 1,
-        keep_alive => 1,
-    );
+    my $agent = $args{agent} || "$class/$VERSION";
+    my $timeout = $args{timeout} || 5;
+
+    my $curl = WWW::Curl::Easy->new();
+    $curl->setopt(CURLOPT_TIMEOUT, $timeout);
+    $curl->setopt(CURLOPT_USERAGENT, $agent);
+    $curl->setopt(CURLOPT_HEADER, 0);
+
     my $host = $args{host} || '127.0.0.1';
     my $port = $args{port} || 1978;
     my $base = "http://${host}:${port}/";
     bless {
-        ua           => $ua,
+        curl         => $curl,
         base         => $base,
     }, $class;
 }
@@ -31,65 +33,165 @@ sub base { $_[0]->{base} }
 
 sub get {
     my ($self, $key) = @_;
-    my $res = $self->{ua}->get($self->{base} . URI::Escape::uri_escape($key));
-    if ($res->code eq 200) {
-        my $ret = $res->content;
-        if (wantarray) {
-            my $expires = HTTP::Date::str2time($res->header('X-Kt-XT'));
-            return ($ret, $expires);
-        } else {
-            return $ret;
+    my $curl = $self->{curl};
+    $curl->setopt( CURLOPT_URL, $self->{base} . URI::Escape::uri_escape($key) );
+    $curl->setopt( CURLOPT_CUSTOMREQUEST, "GET" );
+    $curl->setopt( CURLOPT_HTTPHEADER, [
+            "Connection: Keep-Alive",
+            "Keep-Alive: 300",
+            "Content-Length: 0",
+            "\r\n"
+        ]
+    );
+    $curl->setopt( CURLOPT_NOBODY, 0 );
+    $curl->setopt( CURLOPT_POSTFIELDS, '' );
+    my $response_content = '';
+    open(my $fh, ">", \$response_content) or die "cannot open buffer";
+    $curl->setopt(CURLOPT_WRITEDATA, $fh);
+    my $status_line;
+    my $xt;
+    $curl->setopt( CURLOPT_HEADERFUNCTION,
+        sub {
+            $status_line = $1 if $_[0] =~ m{^HTTP/1\.1 (.+)\015\012$};
+            $xt          = $1 if $_[0] =~ m{^X-Kt-Xt\s*:\s*(.+)\015\012$};
+            return length( $_[0] );
         }
-    } elsif ($res->code eq 404) {
-        return; # not found
+    );
+    my $retcode = $curl->perform();
+    if ($retcode == 0) {
+        my $code = $curl->getinfo(CURLINFO_HTTP_CODE);
+        if ($code eq 200) {
+            if (wantarray) {
+                my $expires = $xt ? HTTP::Date::str2time($xt) : $xt;
+                return ($response_content, $expires);
+            } else {
+                return $response_content;
+            }
+        } elsif ($code eq 404) {
+            return; # not found
+        } else {
+            die "unknown status code: $status_line";
+        }
     } else {
-        die $res->status_line; # invalid response
+        die $curl->strerror($retcode);
     }
 }
 
 sub head {
     my ($self, $key) = @_;
-    my $res = $self->{ua}->head($self->{base} . URI::Escape::uri_escape($key));
-    if ($res->code eq 200) {
-        my $expires = HTTP::Date::str2time($res->header('X-Kt-XT'));
-        return $expires;
-    } elsif ($res->code eq 404) {
-        return; # not found
+    my $curl = $self->{curl};
+    $curl->setopt( CURLOPT_URL, $self->{base} . URI::Escape::uri_escape($key) );
+    $curl->setopt( CURLOPT_HTTPHEADER,
+        [
+            "Content-Length: 0",
+            "Connection: Keep-Alive",
+            "Keep-Alive: 300",
+            "\r\n"
+        ]
+    );
+    $curl->setopt( CURLOPT_NOBODY, 1 );
+    $curl->setopt( CURLOPT_CUSTOMREQUEST, "HEAD" );
+    $curl->setopt( CURLOPT_POSTFIELDS,    '' );
+    $curl->setopt( CURLOPT_HEADER,        0 );
+    my $response_content = '';
+    open( my $fh, ">", \$response_content ) or die "cannot open buffer";
+    $curl->setopt( CURLOPT_WRITEDATA, $fh );
+    my $xt;
+    my $status_line;
+    $curl->setopt( CURLOPT_HEADERFUNCTION,
+        sub {
+            $status_line = $1 if $_[0] =~ m{^HTTP/1\.1 (.+)\015\012$};
+            $xt          = $1 if $_[0] =~ m{^X-Kt-Xt\s*:\s*(.+)\015\012$};
+            return length( $_[0] );
+        }
+    );
+    my $retcode = $curl->perform;
+    if ($retcode == 0) {
+        my $code = $curl->getinfo(CURLINFO_HTTP_CODE);
+        if ($code eq 200) {
+            my $expires = HTTP::Date::str2time($xt);
+            return $expires;
+        } elsif ($code eq 404) {
+            return; # not found
+        }
     } else {
-        die $res->status_line; # invalid response
+        die $curl->strerror($retcode);
     }
 }
 
 sub put {
-    my ($self, $key, $val, $expires_time) = @_;
-    my @headers;
-    if ($expires_time) {
-        $expires_time = $expires_time > 0 ? time() + $expires_time : -$expires_time;
-        my $expires = HTTP::Date::time2str($expires_time);
-        push @headers, 'X-Kt-Xt' => $expires;
-    }
-    my $req = HTTP::Request->new(
-        PUT => $self->{base} . URI::Escape::uri_escape($key),
-        \@headers, $val
+    my ( $self, $key, $val, $expires_time ) = @_;
+    my @headers = (
+        "Content-Length: " . length($val),
+        "Connection: Keep-Alive",
+        "Keep-Alive: 300",
+        "\r\n"
     );
-    my $res = $self->{ua}->request($req);
-    if ($res->code eq 201) {
-        return 1;
-    } else {
-        undef;
+    if ($expires_time) {
+        $expires_time =
+          $expires_time > 0 ? time() + $expires_time : -$expires_time;
+        my $expires = HTTP::Date::time2str($expires_time);
+        unshift @headers, "X-Kt-Xt: $expires";
+    }
+    my $curl = $self->{curl};
+    $curl->setopt( CURLOPT_URL, $self->{base} . URI::Escape::uri_escape($key) );
+    $curl->setopt( CURLOPT_NOBODY, 0 );
+    $curl->setopt( CURLOPT_HTTPHEADER,    \@headers );
+    $curl->setopt( CURLOPT_CUSTOMREQUEST, "PUT" );
+    my $response_content = '';
+    open( my $fh, ">", \$response_content ) or die "cannot open buffer";
+    $curl->setopt( CURLOPT_POSTFIELDS, $val );
+    $curl->setopt( CURLOPT_WRITEDATA,  $fh );
+    my $status_line;
+    $curl->setopt( CURLOPT_HEADERFUNCTION, sub { length( $_[0] ) } );
+
+    my $retcode = $curl->perform();
+    if ( $retcode == 0 ) {
+        my $code = $curl->getinfo(CURLINFO_HTTP_CODE);
+        if ( $code eq 201 ) {
+            return 1;
+        }
+        else {
+            return undef;
+        }
+    }
+    else {
+        die $curl->strerror($retcode);
     }
 }
 
 sub delete {
     my ($self, $key) = @_;
-    my $req = HTTP::Request->new( DELETE => $self->{base} . URI::Escape::uri_escape($key));
-    my $res = $self->{ua}->request($req);
-    if ($res->code eq '204') {
-        return 1;
-    } elsif ($res->code eq '404') {
-        return 0;
+    my $curl = $self->{curl};
+    $curl->setopt( CURLOPT_URL, $self->{base} . URI::Escape::uri_escape($key) );
+    $curl->setopt( CURLOPT_HTTPHEADER,
+        [
+            "Content-Length: 0",
+            "Connection: Keep-Alive",
+            "Keep-Alive: 300",
+            "\r\n"
+        ]
+    );
+    $curl->setopt( CURLOPT_CUSTOMREQUEST, "DELETE" );
+    $curl->setopt( CURLOPT_NOBODY, 1 );
+    $curl->setopt( CURLOPT_POSTFIELDS,    '' );
+    $curl->setopt( CURLOPT_HEADER,        0 );
+    my $response_content = '';
+    open( my $fh, ">", \$response_content ) or die "cannot open buffer";
+    $curl->setopt( CURLOPT_WRITEDATA, $fh );
+    $curl->setopt( CURLOPT_HEADERFUNCTION, sub { length( $_[0] ) } );
+    my $retcode = $curl->perform();
+    if ($retcode == 0) {
+        my $code = $curl->getinfo(CURLINFO_HTTP_CODE);
+        if ($code eq 204) {
+             return 1;
+        } elsif ($code eq '404') {
+            return 0;
+        } else {
+            return undef;
+        }
     } else {
-        return undef;
+        die $curl->strerror($retcode);
     }
 }
 

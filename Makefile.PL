@@ -3,8 +3,7 @@ name 'Cache-KyotoTycoon-REST';
 all_from 'lib/Cache/KyotoTycoon/REST.pm';
 
 requires 'HTTP::Date';
-requires 'HTTP::Request';
-requires 'LWP::UserAgent';
+requires 'WWW::Curl::Easy';
 requires 'URI::Escape';
 requires 'Storable';
 
