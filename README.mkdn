@@ -23,11 +23,13 @@ Cache::KyotoTycoon::REST is client library for KyotoTycoon RESTful API.
 
 - timeout
 
+- db
+
+Database name or number.
+
 # METHODS
 
 - my $val = $kt->get($key);
-
-- my ($val, $expires) = $kt->get($key);
 
 Retrieve the value for a _$key_.  _$key_ should be a scalar.
 

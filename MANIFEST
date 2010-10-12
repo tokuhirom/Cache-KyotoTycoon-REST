@@ -18,6 +18,7 @@ META.yml
 README.mkdn
 t/00_compile.t
 t/live/01_simple.t
+t/live/02_multi_db.t
 xt/01_podspell.t
 xt/02_perlcritic.t
 xt/03_pod.t

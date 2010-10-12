@@ -27,11 +27,6 @@ test_tcp(
             is scalar($rest->get("UNKNOWN KEY!")), undef;
 
             is scalar($rest->get($key)), "fuga1";
-
-            my ($content, $expires) = $rest->get($key);
-            is $content, 'fuga1';
-            ok $expires, "returned expires";
-            cmp_ok abs(str2time($expires)-time()-100), '<', 10;
         };
 
         subtest 'HEAD' => sub {

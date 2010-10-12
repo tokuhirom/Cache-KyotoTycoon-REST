@@ -9,8 +9,8 @@ use File::Temp;
 my $ktserver = which('ktserver');
 plan skip_all => 'ktserver is required for this test' unless $ktserver;
 
-my $db0 = File::Temp->new(SUFFIX => '.kch');
-my $db1 = File::Temp->new(SUFFIX => '.kch');
+my $db0 = File::Temp->new(SUFFIX => '.kch', UNLINK => 0);
+my $db1 = File::Temp->new(SUFFIX => '.kch', UNLINK => 0);
 
 test_tcp(
     client => sub {
