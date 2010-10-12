@@ -4,7 +4,6 @@ all_from 'lib/Cache/KyotoTycoon/REST.pm';
 
 requires 'WWW::Curl::Easy';
 requires 'URI::Escape';
-requires 'Storable';
 
 test_requires 'File::Which';
 test_requires 'Test::TCP';
