@@ -91,9 +91,7 @@ sub head {
     $curl->setopt( CURLOPT_CUSTOMREQUEST, "HEAD" );
     $curl->setopt( CURLOPT_POSTFIELDS,    '' );
     $curl->setopt( CURLOPT_HEADER,        0 );
-    my $response_content = '';
-    open( my $fh, ">", \$response_content ) or die "cannot open buffer";
-    $curl->setopt( CURLOPT_WRITEDATA, $fh );
+    $curl->setopt( CURLOPT_WRITEDATA, undef );
     my $xt;
     my $status_line;
     $curl->setopt( CURLOPT_HEADERFUNCTION,
@@ -134,12 +132,10 @@ sub put {
     $curl->setopt( CURLOPT_NOBODY, 0 );
     $curl->setopt( CURLOPT_HTTPHEADER,    \@headers );
     $curl->setopt( CURLOPT_CUSTOMREQUEST, "PUT" );
-    my $response_content = '';
-    open( my $fh, ">", \$response_content ) or die "cannot open buffer";
     $curl->setopt( CURLOPT_POSTFIELDS, $val );
-    $curl->setopt( CURLOPT_WRITEDATA,  $fh );
+    $curl->setopt( CURLOPT_WRITEDATA,  undef );
     my $status_line;
-    $curl->setopt( CURLOPT_HEADERFUNCTION, sub { length( $_[0] ) } );
+    $curl->setopt( CURLOPT_HEADERFUNCTION, undef );
 
     my $retcode = $curl->perform();
     if ( $retcode == 0 ) {
@@ -172,10 +168,8 @@ sub delete {
     $curl->setopt( CURLOPT_NOBODY, 1 );
     $curl->setopt( CURLOPT_POSTFIELDS,    '' );
     $curl->setopt( CURLOPT_HEADER,        0 );
-    my $response_content = '';
-    open( my $fh, ">", \$response_content ) or die "cannot open buffer";
-    $curl->setopt( CURLOPT_WRITEDATA, $fh );
-    $curl->setopt( CURLOPT_HEADERFUNCTION, sub { length( $_[0] ) } );
+    $curl->setopt( CURLOPT_WRITEDATA, undef );
+    $curl->setopt( CURLOPT_HEADERFUNCTION, undef );
     my $retcode = $curl->perform();
     if ($retcode == 0) {
         my $code = $curl->getinfo(CURLINFO_HTTP_CODE);
