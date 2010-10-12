@@ -47,15 +47,15 @@ sub get {
     my $response_content = '';
     open(my $fh, ">", \$response_content) or die "cannot open buffer";
     $curl->setopt(CURLOPT_WRITEDATA, $fh);
-    my $status_line;
     my $xt;
-    $curl->setopt( CURLOPT_HEADERFUNCTION,
-        sub {
-            $status_line = $1 if $_[0] =~ m{^HTTP/1\.1 (.+)\015\012$};
-            $xt          = $1 if $_[0] =~ m{^X-Kt-Xt\s*:\s*(.+)\015\012$};
-            return length( $_[0] );
-        }
-    );
+    if (wantarray) {
+        $curl->setopt( CURLOPT_HEADERFUNCTION,
+            sub {
+                $xt          = $1 if $_[0] =~ m{^X-Kt-Xt\s*:\s*(.+)\015\012$};
+                return length( $_[0] );
+            }
+        );
+    }
     my $retcode = $curl->perform();
     if ($retcode == 0) {
         my $code = $curl->getinfo(CURLINFO_HTTP_CODE);
@@ -68,7 +68,7 @@ sub get {
         } elsif ($code eq 404) {
             return; # not found
         } else {
-            die "unknown status code: $status_line";
+            die "unknown status code: $code";
         }
     } else {
         die $curl->strerror($retcode);
@@ -93,10 +93,8 @@ sub head {
     $curl->setopt( CURLOPT_HEADER,        0 );
     $curl->setopt( CURLOPT_WRITEDATA, undef );
     my $xt;
-    my $status_line;
     $curl->setopt( CURLOPT_HEADERFUNCTION,
         sub {
-            $status_line = $1 if $_[0] =~ m{^HTTP/1\.1 (.+)\015\012$};
             $xt          = $1 if $_[0] =~ m{^X-Kt-Xt\s*:\s*(.+)\015\012$};
             return length( $_[0] );
         }
@@ -134,7 +132,6 @@ sub put {
     $curl->setopt( CURLOPT_CUSTOMREQUEST, "PUT" );
     $curl->setopt( CURLOPT_POSTFIELDS, $val );
     $curl->setopt( CURLOPT_WRITEDATA,  undef );
-    my $status_line;
     $curl->setopt( CURLOPT_HEADERFUNCTION, undef );
 
     my $retcode = $curl->perform();
