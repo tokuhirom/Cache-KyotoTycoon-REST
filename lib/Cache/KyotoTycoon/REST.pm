@@ -13,6 +13,7 @@ sub new {
 
     my $agent = $args{agent} || "$class/$VERSION";
     my $timeout = $args{timeout} || 5;
+    my $db = $args{db};
 
     my $curl = WWW::Curl::Easy->new();
     $curl->setopt(CURLOPT_TIMEOUT, $timeout);
@@ -22,6 +23,7 @@ sub new {
     my $host = $args{host} || '127.0.0.1';
     my $port = $args{port} || 1978;
     my $base = "http://${host}:${port}/";
+    $base .= URI::Escape::uri_escape($db) . '/' if defined($db);
     bless {
         curl         => $curl,
         base         => $base,
@@ -213,6 +215,10 @@ Cache::KyotoTycoon::REST is client library for KyotoTycoon RESTful API.
 =item host
 
 =item timeout
+
+=item db
+
+Database name or number.
 
 =back
 
